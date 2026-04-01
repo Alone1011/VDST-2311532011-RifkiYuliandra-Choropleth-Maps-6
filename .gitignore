@@ -1,0 +1,6 @@
+# Abaikan folder bahan baku peta se-Indonesia yang ukurannya bergiga-giga
+geojson-id-master/
+
+# Abaikan sampah OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Interaktif Sumatera Barat</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --surface: rgba(255, 255, 255, 0.95);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            background: #e5e5e5;
+        }
+
+        /* Float Controls Panel */
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: var(--surface);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            width: 300px;
+        }
+
+        .control-panel h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0 0 15px 0;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: white;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .form-group select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Toggle Layer Controls */
+        .toggle-group {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 4px;
+            margin-top: 20px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 8px 0;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+
+        /* Leaflet Info Control Override */
+        .info {
+            padding: 16px 20px;
+            font-size: 0.9rem;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            backdrop-filter: blur(8px);
+            min-width: 200px;
+        }
+
+        .info h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .info b {
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .info .val {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        
+        .info .missing {
+            font-size: 1rem;
+            color: #ef4444;
+            font-style: italic;
+        }
+
+        /* Legend Control */
+        .legend {
+            line-height: 1.6;
+            color: var(--text-main);
+            padding: 15px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.85;
+            border-radius: 3px;
+        }
+        
+        .legend .legend-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: block;
+            font-size: 0.9rem;
+        }
+
+        /* Polygons Hover effects handled via JS mainly, but adding SVG transition */
+        path.leaflet-interactive {
+            transition: fill-opacity 0.2s, stroke-width 0.2s, stroke 0.2s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Panel -->
+    <div class="control-panel">
+        <h1>Dashboard Sumbar</h1>
+        
+        <div class="form-group">
+            <label for="indicatorSelect">Pilih Indikator</label>
+            <select id="indicatorSelect">
+                <!-- Data Real BPS -->
+                <option value="IPM">Indeks Pembangunan Manusia (IPM)</option>
+                <option value="UHH">Umur Harapan Hidup</option>
+                <option value="PDRB_ADHB">PDRB ADHB (Juta Rp)</option>
+                <option value="PDRB_ADHK">PDRB ADHK (Juta Rp)</option>
+                <option value="Gini">Gini Ratio</option>
+                <option value="HLS">Harapan Lama Sekolah (Tahun)</option>
+                <option value="Pengeluaran">Pengeluaran Per Kapita</option>
+                <option value="Kemiskinan_Persen">Persentase Kemiskinan (%)</option>
+                <option value="Kemiskinan_Jumlah">Jumlah Miskin (Ribu)</option>
+                <option value="RLS">Rata Rata Lama Sekolah (Tahun)</option>
+                <option value="Pengangguran">Tingkat Pengangguran (%)</option>
+                <option value="Pertumbuhan_Ekonomi">Pertumbuhan Ekonomi (%)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="yearSelect">Pilih Tahun</label>
+            <select id="yearSelect">
+                <!-- Generated by JS -->
+            </select>
+        </div>
+
+        <div class="toggle-group">
+            <button id="btnKabupaten" class="toggle-btn active">Kabupaten / Kota</button>
+            <button id="btnKecamatan" class="toggle-btn">Kecamatan</button>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- GeoJSON Data -->
+    <script src="sumbar-kabupaten-data.js"></script>
+    <script src="sumbar-kecamatan-data.js"></script>
+
+    <!-- Main Logic -->
+    <script>
+        // Init Map
+        const map = L.map('map', {
+            zoomControl: false // Move zoom to bottom right later to avoid UI overlap
+        }).setView([-0.9399, 100.8], 8); // Centered over Sumbar
+
+        L.control.zoom({
+            position: 'bottomleft'
+        }).addTo(map);
+
+        // Basemap
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20,
+            pane: 'shadowPane' // Keep labels above polygons
+        }).addTo(map);
+
+        // State variables
+        let currentLevel = 'kabupaten'; // 'kabupaten' or 'kecamatan'
+        let currentIndicator = 'IPM';
+        let currentYear = 2020;
+        let activeGeoJsonLayer = null;
+        let legendControl = null;
+        
+        // Define indicator characteristics
+        const indicatorMeta = {
+            'IPM': { name: 'Indeks Pembangunan Manusia', type: 'positive' },
+            'UHH': { name: 'Umur Harapan Hidup', type: 'positive' },
+            'PDRB_ADHB': { name: 'PDRB ADHB (Juta Rp)', type: 'positive' },
+            'PDRB_ADHK': { name: 'PDRB ADHK (Juta Rp)', type: 'positive' },
+            'Gini': { name: 'Gini Ratio', type: 'negative' },
+            'HLS': { name: 'Harapan Lama Sekolah', type: 'positive' },
+            'Pengeluaran': { name: 'Pengeluaran Per Kapita', type: 'positive' },
+            'Kemiskinan_Persen': { name: 'Persentase Kemiskinan (%)', type: 'negative' },
+            'Kemiskinan_Jumlah': { name: 'Jumlah Kemiskinan (Ribu)', type: 'negative' },
+            'RLS': { name: 'Rata-Rata Lama Sekolah', type: 'positive' },
+            'Pengangguran': { name: 'Tingkat Pengangguran Terbuka (%)', type: 'negative' },
+            'Pertumbuhan_Ekonomi': { name: 'Pertumbuhan Ekonomi (%)', type: 'positive' }
+        };
+
+        // Populate Years (2015-2025)
+        const yearSelect = document.getElementById('yearSelect');
+        for(let y=2025; y>=2015; y--) {
+            let opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if(y === parseInt(currentYear)) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
+
+        // Info Control
+        const info = L.control({position: 'topright'});
+        info.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        info.update = function (props) {
+            const indKey = `${currentIndicator}_${currentYear}`;
+            const meta = indicatorMeta[currentIndicator];
+            const name = props ? (props.kecamatan || props.name) : '';
+            const val = props ? props[indKey] : undefined;
+            
+            let valStr = "";
+            if (props) {
+                if (val === undefined || val === null) {
+                    valStr = "<span class='missing'>Data tidak tersedia</span>";
+                } else {
+                    valStr = "<span class='val'>" + val + "</span>";
+                }
+            }
+
+            this._div.innerHTML = `<h4>${meta.name} (${currentYear})</h4>` +  
+                (props ? `<b>${name}</b><br />${valStr}` 
+                       : 'Arahkan kursor pada wilayah peta');
+        };
+        info.addTo(map);
+
+        // Global variables for legend and styling
+        let activeKey = "";
+        let currentGrades = [];
+        let currentColors = [];
+        let currentMin = 0;
+        let currentMax = 0;
+
+        // Color Palettes
+        const palettePositive = ['#f7fbff', '#c6dbef', '#6baed6', '#2171b5', '#08306b'];
+        const paletteNegative = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026'];
+
+        function getMinMax(dataset) {
+            let values = [];
+            dataset.features.forEach(f => {
+                let v = f.properties[activeKey];
+                if (v !== undefined && v !== null && v !== '') {
+                    let floatV = parseFloat(v);
+                    if (!isNaN(floatV)) {
+                        values.push(floatV);
+                    }
+                }
+            });
+            
+            if (values.length === 0) return { min: 0, max: 0 };
+            return {
+                min: Math.min(...values),
+                max: Math.max(...values)
+            };
+        }
+
+        function getColor(val) {
+            if (val === null || isNaN(val) || val === undefined) return '#d1d5db'; // Fallback abu-abu
+            
+            for (let i = 0; i < currentGrades.length - 1; i++) {
+                if (val <= currentGrades[i + 1]) {
+                    return currentColors[i];
+                }
+            }
+            return currentColors[currentColors.length - 1]; // Warna nilai tertinggi
+        }
+
+        // Legend Control Update
+        function updateLegend() {
+            if (legendControl) {
+                map.removeControl(legendControl);
+            }
+            
+            legendControl = L.control({position: 'bottomright'});
+            legendControl.onAdd = function (map) {
+                let div = L.DomUtil.create('div', 'info legend'),
+                    labels = [];
+
+                let metaName = indicatorMeta[currentIndicator].name;
+                div.innerHTML += `<span class="legend-title">${metaName}</span>`;
+
+                for (let i = 0; i < currentGrades.length - 1; i++) {
+                    let from = currentGrades[i];
+                    let to = currentGrades[i + 1];
+                    let fromStr = from % 1 !== 0 ? parseFloat(from).toFixed(2) : from;
+                    let toStr = to ? (to % 1 !== 0 ? parseFloat(to).toFixed(2) : to) : null;
+                    
+                    labels.push(
+                        '<i style="background:' + currentColors[i] + '"></i> ' +
+                        fromStr + (toStr ? '&ndash;' + toStr : '+'));
+                }
+                div.innerHTML += labels.join('<br>');
+                div.innerHTML += '<br><i style="background:#d1d5db"></i> Tidak Ada Data';
+                return div;
+            };
+            legendControl.addTo(map);
+        }
+
+        // Style feature
+        function style(feature) {
+            var val = parseFloat(feature.properties[activeKey]);
+            
+            return {
+                fillColor: getColor(val),
+                weight: 1,
+                opacity: 1,
+                color: 'white',
+                dashArray: '3',
+                fillOpacity: 0.85
+            };
+        }
+
+        // Interactions
+        function highlightFeature(e) {
+            let layer = e.target;
+            layer.setStyle({
+                weight: 3,
+                color: '#666',
+                dashArray: '',
+                fillOpacity: 1
+            });
+            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                layer.bringToFront();
+            }
+            info.update(layer.feature.properties);
+        }
+
+        function resetHighlight(e) {
+            if(activeGeoJsonLayer) {
+                activeGeoJsonLayer.resetStyle(e.target);
+            }
+            info.update();
+        }
+
+        function onEachFeature(feature, layer) {
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight
+            });
+        }
+
+        // Central Update Function
+        function updateMap() {
+            let dataToRender;
+            if (currentLevel === 'kabupaten') {
+                dataToRender = statesData;
+            } else if (currentLevel === 'kecamatan') {
+                dataToRender = kecamatanData;
+            } else {
+                console.error("Tingkat wilayah tidak valid:", currentLevel);
+                return;
+            }
+
+            const meta = indicatorMeta[currentIndicator];
+            
+            // Fuzzy Key Matching
+            let availableKeys = Object.keys(dataToRender.features[0].properties);
+            let matchedKey = availableKeys.find(k => 
+                k.toLowerCase().includes(currentIndicator.toLowerCase()) && 
+                k.includes(currentYear)
+            );
+
+            // Gunakan key yang ditemukan, atau fallback ke cara lama jika gagal
+            activeKey = matchedKey ? matchedKey : (currentIndicator + "_" + currentYear);
+            console.log("Mencoba memuat data dengan Key Asli dari JSON:", activeKey);
+            
+            // a & b. Cari Min-Max & Interval (Grades)
+            const minMax = getMinMax(dataToRender);
+            currentMin = minMax.min;
+            currentMax = minMax.max;
+            
+            let interval = (currentMax - currentMin) / 5;
+            currentGrades = [];
+            for (let i = 0; i <= 5; i++) {
+                currentGrades.push(currentMin + (interval * i));
+            }
+            if (currentMin === currentMax) {
+                currentGrades = [currentMin, currentMin+1, currentMin+2, currentMin+3, currentMin+4, currentMin+5];
+            }
+
+            // c. Tentukan Skala Warna
+            currentColors = meta.type === 'positive' ? palettePositive : paletteNegative;
+
+            // d. Update HTML Legenda
+            updateLegend();
+            info.update();
+
+            // e. CRITICAL STEP: Render/Gambar Ulang
+            console.log("Data yang akan dirender:", dataToRender);
+            if (!dataToRender || typeof dataToRender !== 'object' || !dataToRender.features) {
+                console.error("GAGAL: Objek GeoJSON yang dilempar tidak valid atau kosong!");
+                return;
+            }
+
+            if (activeGeoJsonLayer) {
+                map.removeLayer(activeGeoJsonLayer);
+            }
+            activeGeoJsonLayer = L.geoJson(dataToRender, {
+                style: style,
+                onEachFeature: onEachFeature
+            }).addTo(map);
+        }
+
+        // Event Listeners
+        document.getElementById('indicatorSelect').addEventListener('change', function(e) {
+            currentIndicator = e.target.value;
+            updateMap();
+        });
+
+        document.getElementById('yearSelect').addEventListener('change', function(e) {
+            currentYear = e.target.value;
+            updateMap();
+        });
+
+        document.getElementById('btnKabupaten').addEventListener('click', function(e) {
+            if(currentLevel === 'kabupaten') return;
+            currentLevel = 'kabupaten';
+            this.classList.add('active');
+            document.getElementById('btnKecamatan').classList.remove('active');
+            
+            updateMap();
+            map.flyTo([-0.9399, 100.8], 8, {duration: 0.5});
+        });
+
+        document.getElementById('btnKecamatan').addEventListener('click', function(e) {
+            if(currentLevel === 'kecamatan') return;
+            currentLevel = 'kecamatan';
+            this.classList.add('active');
+            document.getElementById('btnKabupaten').classList.remove('active');
+            
+            updateMap();
+        });
+
+        // Initialize Call
+        updateMap();
+
+    </script>
+</body>
+</html>
