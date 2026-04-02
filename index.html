@@ -226,9 +226,8 @@
             </select>
         </div>
 
-        <div class="toggle-group">
-            <button id="btnKabupaten" class="toggle-btn active">Kabupaten / Kota</button>
-            <button id="btnKecamatan" class="toggle-btn">Kecamatan</button>
+        <div class="toggle-group" id="backBtnContainer" style="display: none;">
+            <button id="btnBack" class="toggle-btn active" style="background-color: #fca5a5; color: #7f1d1d; border-color: #f87171;">🔙 Kembali ke Peta Utama</button>
         </div>
     </div>
 
@@ -268,7 +267,7 @@
         }).addTo(map);
 
         // State variables
-        let currentLevel = 'kabupaten'; // 'kabupaten' or 'kecamatan'
+        let zoomedKabupatenId = null; // null means showing all kabupaten
         let currentIndicator = 'IPM';
         let currentYear = 2020;
         let activeGeoJsonLayer = null;
@@ -436,23 +435,46 @@
             info.update();
         }
 
+        function zoomToFeature(e) {
+            // Jika sudah di level kecamatan, cegah klik zoom lagi
+            if (zoomedKabupatenId !== null) return; 
+
+            // Zoom ke fitur yang diklik
+            map.fitBounds(e.target.getBounds(), {padding: [50, 50]});
+            
+            // Simpan state & tampilkan tombol kembali
+            zoomedKabupatenId = e.target.feature.properties.adm2;
+            document.getElementById('backBtnContainer').style.display = 'block';
+            
+            // Render ulang peta untuk tingkat kecamatan
+            updateMap();
+        }
+
         function onEachFeature(feature, layer) {
             layer.on({
                 mouseover: highlightFeature,
-                mouseout: resetHighlight
+                mouseout: resetHighlight,
+                click: zoomToFeature
             });
         }
 
         // Central Update Function
         function updateMap() {
             let dataToRender;
-            if (currentLevel === 'kabupaten') {
+            if (zoomedKabupatenId === null) {
+                // Tampilan Global: Semua Kabupaten
                 dataToRender = statesData;
-            } else if (currentLevel === 'kecamatan') {
-                dataToRender = kecamatanData;
             } else {
-                console.error("Tingkat wilayah tidak valid:", currentLevel);
-                return;
+                // Tampilan Drill-down: Filter Kecamatan yang di dalam Kabupaten yang diklik
+                let filteredFeatures = kecamatanData.features.filter(
+                    f => f.properties.kabupaten === zoomedKabupatenId || f.properties.adm2 === zoomedKabupatenId
+                );
+                
+                // Buat objek FeatureCollection on-the-fly
+                dataToRender = {
+                    "type": "FeatureCollection",
+                    "features": filteredFeatures
+                };
             }
 
             const meta = indicatorMeta[currentIndicator];
@@ -516,22 +538,14 @@
             updateMap();
         });
 
-        document.getElementById('btnKabupaten').addEventListener('click', function(e) {
-            if(currentLevel === 'kabupaten') return;
-            currentLevel = 'kabupaten';
-            this.classList.add('active');
-            document.getElementById('btnKecamatan').classList.remove('active');
+        document.getElementById('btnBack').addEventListener('click', function(e) {
+            zoomedKabupatenId = null;
+            document.getElementById('backBtnContainer').style.display = 'none';
             
-            updateMap();
+            // Kembalikan view kamera ke awal
             map.flyTo([-0.9399, 100.8], 8, {duration: 0.5});
-        });
-
-        document.getElementById('btnKecamatan').addEventListener('click', function(e) {
-            if(currentLevel === 'kecamatan') return;
-            currentLevel = 'kecamatan';
-            this.classList.add('active');
-            document.getElementById('btnKabupaten').classList.remove('active');
             
+            // Render ulang kumpulan kabupaten
             updateMap();
         });
 
